@@ -1,0 +1,151 @@
+NAME
+    Sub::Spec::RunDeps - Run subroutine in order of its dependencies
+
+VERSION
+    version 0.01
+
+SYNOPSIS
+    In your module:
+
+     package YourModule;
+
+     use 5.010;
+     our %SPEC;
+
+     $SPEC{a} = { depends => 'b', ... };
+     sub a { my %args = @_; say "a", $args{punctuation}; [200, "OK"] }
+
+     $SPEC{b} = { depends => {subname=>'c'}, ... };
+     sub b { my %args = @_; say "b", $args{punctuation}; [200, "OK"] }
+
+     $SPEC{c} = { depends => 'd|e', ... };
+     sub c { my %args = @_; say "c", $args{punctuation}; [200, "OK"] }
+
+     $SPEC{d} = { ... };
+     sub d { my %args = @_; say "d", $args{punctuation}; [200, "OK"] }
+
+     $SPEC{e} = { ... };
+     sub e { my %args = @_; say "e", $args{punctuation}; [200, "OK"] }
+
+     1;
+
+    In caller:
+
+     use Sub::Spec::RunDeps qw(run_deps);
+     run_deps(item => {sub=>'YourModule::a'}, common_args=>{punctuation=>'!'});
+
+    will output:
+
+     d!
+     e!
+     c!
+     b!
+     a!
+
+DESCRIPTION
+    This module reads the depends clause on subroutine specs and runs
+    subroutine in order of dependencies. That is, if you tell it to run "A",
+    it will try to satisfy (run) A's dependencies first, and A's
+    dependencies' dependencies, and so on.
+
+    This module uses Log::Any logging framework. Use something like
+    Log::Any::App, etc to see more logging statements for debugging.
+
+FUNCTIONS
+    None of the functions are exported by default, but they are exportable.
+
+  run_deps(%args) -> [STATUSCODE, ERRMSG, RESULT]
+    Run subroutine in order of dependencies.
+
+    Will build dependency tree first and fail with error 412 if cannot solve
+    dependencies.
+
+    Will stop after a dependency failed. All subroutines must return 200 or
+    304 status to be considered as not failed.
+
+    Each subroutine will be passed arguments from common_args (if any), item
+    args (if any), and "-ctx" which is the context object. You can call
+    $ctx->sub_res() to find out the result of other subroutines. You can
+    also call $ctx->stash($key[, $value]) to get/set value that can be
+    accessed by other subroutines.
+
+    Returns a 3-element arrayref. STATUSCODE is 200 on success, or an error
+    code between 3xx-5xx (just like in HTTP). ERRMSG is a string containing
+    error message, RESULT is the actual result.
+
+    Arguments ("*" denotes required arguments):
+
+    *   common_args => *hash*
+
+        Arguments to pass to every subroutine.
+
+    *   dry_run => *bool* (default 0)
+
+        If set to true, only form dependency tree and return the ordered
+        items.
+
+    *   exclude => *array*
+
+        Exclude items.
+
+    *   ignore_errors => *bool* (default 0)
+
+        If set to true, ignore error when executing a subroutine and move on
+        to the next.
+
+    *   item => *hash|str*
+
+        A single subroutine name/args to execute.
+
+        Example:
+
+         'Package::foo'   # subroutine foo in package Package, will be called with no
+                          # args/only common_args
+
+         'bar'            # subroutine bar in package main, will be caled with no
+                          # args/only common args
+
+         {sub=>'Package::baz', args=>{a=>1, b=>2}} # pass args to sub, in addition to
+                                                   # common_args
+
+        See also 'items' if you want to execute several subroutines in
+        successive order.
+
+    *   items => *array*
+
+        Execute several items.
+
+        An array of zero or more items. See 'item' for more details.
+
+    *   load => *bool* (default 1)
+
+        Whether to require modules.
+
+    *   reverse_order => *bool* (default 0)
+
+        If set to true, reverse order (dependents run first).
+
+    *   specs => **
+
+        Instead of searching for specs in %SPEC of appropriate package,
+        search in the specified specs.
+
+        'specs' can be a hash (with package name as key) of hash (with
+        function name as the key) of specs. Or it can be a coderef which
+        will be given %args module => ..., sub => ... and expected to return
+        a spec.
+
+SEE ALSO
+    Sub::Spec
+
+    Sub::Spec::Clause::depends
+
+AUTHOR
+    Steven Haryanto <stevenharyanto@gmail.com>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2011 by Steven Haryanto.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+
