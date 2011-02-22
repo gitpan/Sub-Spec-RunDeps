@@ -1,6 +1,6 @@
 package Sub::Spec::RunDeps;
 BEGIN {
-  $Sub::Spec::RunDeps::VERSION = '0.01';
+  $Sub::Spec::RunDeps::VERSION = '0.02';
 }
 # ABSTRACT: Run subroutine in order of its dependencies
 
@@ -127,7 +127,7 @@ sub _collect_dep {
 
             if (!$deps->{$k}) {
                 $deps->{$k}  = [];
-                $items->{$k} = {key=>$k, item=>$item, spec=>$spec};
+                $items->{$k} = {item=>$item, spec=>$spec};
                 if ($spec->{depends}) {
                     push @{ $deps->{$k} }, _collect_dep(
                         $deps, $items, $spec->{depends}, $parent_args, $errors);
@@ -244,6 +244,27 @@ _
                 'return the ordered items',
             default => 0,
         }],
+        after_item => ['any' => { # xxx code
+            summary => 'A coderef to customize the order of execution',
+            description => <<'_',
+
+If set, after_item will be executed after each item, and will be given
+%arguments: item, items, ref_i (reference to current index of items), ctx, res
+(return value of item).
+
+See also 'before_item'.
+_
+        }],
+        before_item => ['any' => { # xxx code
+            summary => 'A coderef to customize the order of execution',
+            description => <<'_',
+
+If set, after_item will be executed before each item, and will be given
+%arguments: item, items, ref_i (reference to current index of items), ctx.
+
+See also 'after_item'.
+_
+        }],
     },
 };
 sub run_deps {
@@ -293,6 +314,7 @@ sub run_deps {
     # generate ordered items
     @items = ();
     for my $k (@$sched) {
+        $items{$k}{key} = $k;
         push @items, $items{$k};
     }
 
@@ -306,19 +328,35 @@ sub run_deps {
         return [200, "OK", {items=>\@items, sched=>$sched, deps=>\%deps}];
     }
 
-    $log->infof("Will be running %d item(s)", scalar(@items));
-    my $i = 0;
+    $log->infof("Total number of items to run: %d", scalar(@items));
     my $num_success = 0;
     my $num_failed  = 0;
     my $ctx = Sub::Spec::RunDeps::ContextObject->new({
         items=>\@items, sched=>$sched, deps=>\%deps, sub_res=>{}, stash=>{}});
-    for my $item (@items) {
-        $log->infof("Running item #%d", ++$i);
-        my $k = $item->{key} // "";
+    my $i = -1;
+    while (1) {
+        $i++;
+        my $item = $items[$i];
+        if ($args{before_item}) {
+            $log->infof("Running before_item(), i=%d", $i);
+            $args{before_item}->(
+                ref_i=>\$i,
+                item=>$item,
+                items=>\@items,
+                ctx=>$ctx
+            );
+        }
+        last if $i >= @items;
+        $item = $items[$i];
+
+        my $key = $item->{key};
+        $log->infof("Running item #%d (%s)", $i, $key);
+
+        my $res;
         eval {
             my $error;
-            if (!$k || $k !~ /^SUB:(.+)::(.+)$/) {
-                $error = "Don't know how to run item '$k'";
+            if ($key !~ /^SUB:(.+)::(.+)$/) {
+                $error = "Don't know how to run item '$key'";
                 $log->error($error);
                 die "$error\n";
             }
@@ -343,7 +381,7 @@ sub run_deps {
                     for keys %{ $item->{item}{args} };
             }
             $item_args{"-ctx"} = $ctx;
-            my $res = $fref->(%item_args);
+            $res = $fref->(%item_args);
             $ctx->{sub_res}{"$module\::$sub"} = $res;
             if ($res->[0] !~ /^(200|304)$/) {
                 $num_failed++;
@@ -358,7 +396,30 @@ sub run_deps {
         if ($eval_err && !$args{ignore_errors}) {
             chomp($eval_err);
             return [500, "Failed at item #$i/".scalar(@items).
-                        " ($k): $eval_err"];
+                        " ($key): $eval_err"];
+        }
+        if ($args{after_item}) {
+            $log->infof("Running after_item(), i=%d", $i);
+            $args{after_item}->(res=>$res,
+                                ref_i=>\$i,
+                                item=>$item,
+                                items=>\@items,
+                                ctx=>$ctx
+                            );
+            last if $i >= @items;
+            $log->tracef("size(items)=%d", scalar(@items));
+        }
+    }
+    my $num_unique_success = 0;
+    my $num_unique_failed  = 0;
+    my $num_unique_items   = 0;
+    for (keys %{$ctx->{sub_res}}) {
+        my $sr = $ctx->{sub_res}{$_};
+        $num_unique_items++;
+        if ($sr->[0] == 200 || $sr->[0] == 304) {
+            $num_unique_success++;
+        } else {
+            $num_unique_failed++;
         }
     }
     my $res = [];
@@ -378,13 +439,16 @@ sub run_deps {
         num_success => $num_success,
         num_failed  => $num_failed,
         num_items   => ($num_success+$num_failed),
+        num_unique_success => $num_unique_success,
+        num_unique_failed  => $num_unique_failed ,
+        num_unique_items   => $num_unique_items  ,
     };
     $res;
 }
 
 package Sub::Spec::RunDeps::ContextObject;
 BEGIN {
-  $Sub::Spec::RunDeps::ContextObject::VERSION = '0.01';
+  $Sub::Spec::RunDeps::ContextObject::VERSION = '0.02';
 }
 
 # we use object to abstract the context data. if we run items remotely, we don't
@@ -403,10 +467,11 @@ sub sub_res {
 
 sub stash {
     my ($self, $key, $value) = @_;
+    my $oldval = $self->{stash}{$key};
     if (defined($value)) {
         $self->{stash}{$key} = $value;
     }
-    $self->{stash}{$key};
+    $oldval;
 }
 
 1;
@@ -420,7 +485,7 @@ Sub::Spec::RunDeps - Run subroutine in order of its dependencies
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
@@ -499,6 +564,25 @@ message, RESULT is the actual result.
 Arguments (C<*> denotes required arguments):
 
 =over 4
+
+=item * B<after_item> => I<>
+
+A coderef to customize the order of execution.
+
+If set, after_item will be executed after each item, and will be given
+%arguments: item, items, ref_i (reference to current index of items), ctx, res
+(return value of item).
+
+See also 'before_item'.
+
+=item * B<before_item> => I<>
+
+A coderef to customize the order of execution.
+
+If set, after_item will be executed before each item, and will be given
+%arguments: item, items, ref_i (reference to current index of items), ctx.
+
+See also 'after_item'.
 
 =item * B<common_args> => I<hash>
 

@@ -2,7 +2,7 @@ NAME
     Sub::Spec::RunDeps - Run subroutine in order of its dependencies
 
 VERSION
-    version 0.01
+    version 0.02
 
 SYNOPSIS
     In your module:
@@ -74,6 +74,26 @@ FUNCTIONS
     error message, RESULT is the actual result.
 
     Arguments ("*" denotes required arguments):
+
+    *   after_item => **
+
+        A coderef to customize the order of execution.
+
+        If set, after_item will be executed after each item, and will be
+        given %arguments: item, items, ref_i (reference to current index of
+        items), ctx, res (return value of item).
+
+        See also 'before_item'.
+
+    *   before_item => **
+
+        A coderef to customize the order of execution.
+
+        If set, after_item will be executed before each item, and will be
+        given %arguments: item, items, ref_i (reference to current index of
+        items), ctx.
+
+        See also 'after_item'.
 
     *   common_args => *hash*
 

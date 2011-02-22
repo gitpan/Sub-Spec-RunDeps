@@ -21,4 +21,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Sub-Spec-RunDeps/
   repository: http://github.com/sharyanto/perl-Sub-Spec-RunDeps
-version: 0.01
+version: 0.02

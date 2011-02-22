@@ -181,7 +181,7 @@ test_rdeps(
     args          => {item=>'Foo::a',
                       exclude=>['Foo::e', {sub=>'Foo::d'}]},
     status        => 200,
-    num_items     => 3, num_failed => 0, num_success => 0,
+    num_items     => 3, num_failed => 0, num_success => 3,
     output_re     => qr/^CBxA$/,
 );
 
@@ -191,7 +191,7 @@ test_rdeps(
     args          => {item=>'Foo::a',
                       exclude=>['Foo::b']},
     status        => 200,
-    num_items     => 1, num_failed => 0, num_success => 0,
+    num_items     => 1, num_failed => 0, num_success => 1,
     output_re     => qr/^A$/,
 );
 
@@ -200,7 +200,7 @@ test_rdeps(
     args          => {item=>'Bar::a',
                       specs=>{Bar=>{a=>{depends=>"Bar::b"}, b=>{}}}},
     status        => 200,
-    num_items     => 2, num_failed => 0, num_success => 0,
+    num_items     => 2, num_failed => 0, num_success => 2,
 );
 test_rdeps(
     name          => 'specs coderef',
@@ -220,7 +220,64 @@ test_rdeps(
                           }
                       }},
     status        => 200,
-    num_items     => 2, num_failed => 0, num_success => 0,
+    num_items     => 2, num_failed => 0, num_success => 2,
+);
+
+test_rdeps(
+    name          => 'after_item (repeat every 200 item twice)',
+    args          => {item=>'Foo::a',
+                      after_item => sub {
+                          my %args = @_;
+                          my $res      = $args{res};
+                          my $ref_i    = $args{ref_i};
+                          my $item     = $args{item};
+                          my $ctx      = $args{ctx};
+                          ${$ref_i}-- if $res->[0] == 200 &&
+                              !$ctx->stash("repeated_$item->{key}", 1);
+                      },
+                  },
+    status        => 200,
+    num_items        => 9, num_failed       => 0, num_success        => 9,
+    num_unique_items => 5, num_uniquefailed => 0, num_unique_success => 5,
+    output_re     => qr/^EDDCCBxBxAA$/,
+);
+
+test_rdeps(
+    name          => 'before_item (skip every other step)',
+    args          => {item=>'Foo::a',
+                      before_item => sub {
+                          my %args = @_;
+                          my $ref_i    = $args{ref_i};
+                          ${$ref_i}++;
+                      },
+                  },
+    status        => 200,
+    num_items        => 2, num_failed       => 0, num_success        => 2,
+    num_unique_items => 2, num_uniquefailed => 0, num_unique_success => 2,
+    output_re     => qr/^DBx$/,
+);
+
+test_rdeps(
+    name          => 'demo: insert a new item after b',
+    args          => {item=>'Foo::a',
+                      ignore_errors=>1,
+                      after_item => sub {
+                          my %args  = @_;
+                          my $item  = $args{item};
+                          my $items = $args{items};
+                          my $ref_i = $args{ref_i};
+                          return unless $item->{key} eq 'SUB:Foo::c';
+                          push @{$items}, {
+                              item => {sub=>'Foo::j'},
+                              key  => 'SUB:Foo::j',
+                              spec => $Foo::SPEC{j},
+                          };
+                      },
+                  },
+    status        => 200,
+    num_items        => 6, num_failed       => 1, num_success        => 5,
+    num_unique_items => 6, num_uniquefailed => 1, num_unique_success => 5,
+    output_re     => qr/^EDCBxAJ$/,
 );
 
 # XXX test load
@@ -241,14 +298,26 @@ sub test_rdeps {
             is($res->[0], $args{status}, "return status = $args{status}") or
                 do { diag explain $res; last };
         }
-        if ($args{num_items}) {
+        if (defined $args{num_items}) {
             is($res->[2]{num_items}, $args{num_items}, "num_items");
         }
-        if ($args{num_failed}) {
+        if (defined $args{num_unique_items}) {
+            is($res->[2]{num_unique_items}, $args{num_unique_items},
+               "num_unique_items");
+        }
+        if (defined $args{num_failed}) {
             is($res->[2]{num_failed}, $args{num_failed}, "num_failed");
         }
-        if ($args{num_success}) {
+        if (defined $args{num_unique_failed}) {
+            is($res->[2]{num_unique_failed}, $args{num_unique_failed},
+               "num_unique_failed");
+        }
+        if (defined $args{num_success}) {
             is($res->[2]{num_success}, $args{num_success}, "num_success");
+        }
+        if (defined $args{num_unique_success}) {
+            is($res->[2]{num_unique_success}, $args{num_unique_success},
+               "num_unique_success");
         }
 
         if ($args{output_re}) {
