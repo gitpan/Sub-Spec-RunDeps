@@ -2,7 +2,7 @@ NAME
     Sub::Spec::RunDeps - Run subroutine in order of its dependencies
 
 VERSION
-    version 0.02
+    version 0.03
 
 SYNOPSIS
     In your module:

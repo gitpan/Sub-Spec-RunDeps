@@ -1,5 +1,10 @@
 Revision history for Sub::Spec::RunDeps
 
+0.03     2011-02-23
+
+         Add missing dep: Log::Any.
+
+
 0.02     2011-02-22
 
          Add before_item & after_item argument.

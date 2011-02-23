@@ -15,10 +15,11 @@ meta-spec:
 name: Sub-Spec-RunDeps
 requires:
   Algorithm::Dependency: 0
+  Log::Any: 0
   Sub::Spec: 0.04
   Test::More: 0.96
   perl: 5.010000
 resources:
   homepage: http://search.cpan.org/dist/Sub-Spec-RunDeps/
   repository: http://github.com/sharyanto/perl-Sub-Spec-RunDeps
-version: 0.02
+version: 0.03

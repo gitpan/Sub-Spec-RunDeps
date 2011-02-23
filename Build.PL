@@ -17,13 +17,14 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Sub-Spec-RunDeps',
-  'dist_version' => '0.02',
+  'dist_version' => '0.03',
   'license' => 'perl',
   'module_name' => 'Sub::Spec::RunDeps',
   'recommends' => {},
   'recursive_test_files' => 1,
   'requires' => {
     'Algorithm::Dependency' => '0',
+    'Log::Any' => '0',
     'Sub::Spec' => '0.04',
     'Test::More' => '0.96',
     'perl' => '5.010000'

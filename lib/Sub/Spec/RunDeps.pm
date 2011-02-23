@@ -1,6 +1,6 @@
 package Sub::Spec::RunDeps;
 BEGIN {
-  $Sub::Spec::RunDeps::VERSION = '0.02';
+  $Sub::Spec::RunDeps::VERSION = '0.03';
 }
 # ABSTRACT: Run subroutine in order of its dependencies
 
@@ -448,7 +448,7 @@ sub run_deps {
 
 package Sub::Spec::RunDeps::ContextObject;
 BEGIN {
-  $Sub::Spec::RunDeps::ContextObject::VERSION = '0.02';
+  $Sub::Spec::RunDeps::ContextObject::VERSION = '0.03';
 }
 
 # we use object to abstract the context data. if we run items remotely, we don't
@@ -485,7 +485,7 @@ Sub::Spec::RunDeps - Run subroutine in order of its dependencies
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
